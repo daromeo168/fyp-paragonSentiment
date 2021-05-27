@@ -1,13 +1,38 @@
 import tokenize
+
+import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.classify import NaiveBayesClassifier
 import pandas as pd
 from textblob import TextBlob, classifiers
 from nltk.corpus import stopwords
+import matplotlib.pyplot as plt
+from flask import Flask, render_template, request, redirect, session
+from collections import Counter
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+
+app = Flask(__name__)
 
 
 
-df = pd.read_csv('data/dataPa.csv')
+scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
+         "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+
+credentials = ServiceAccountCredentials.from_json_keyfile_name('googleDriveCredential/DataFYP-f9b4cc069a54.json', scope)
+client = gspread.authorize(credentials)
+
+spreadsheet = client.open('CSV-to-Google-Sheet')
+
+sheetid = '1-axN2JfkmJc18DsmIW120PMZ6on-omMVUaRHdH6qHjM'
+
+
+df = pd.read_csv(f'https://docs.google.com/spreadsheets/d/{sheetid}/export?format=csv')
 
 def create_word_features(words):
     useful_words = [word for word in words if word not in stopwords.words("english")]
@@ -23,24 +48,89 @@ def create_word_features(words):
 #                        '(?:%[0-9a-fA-F][0-9a-fA-F]))+','', token)
 #         token = re.sub("(@[A-Za-z0-9_]+)","", token)
 
+def balancingScore(value, object):
+    badSentiment = ["expensive", "dirty", "pricey", "issue"]
 
-def isService(service):
-    if "receptionist" in service:
-        return True
+    for negativeSentiment in badSentiment:
+        for verbinG in object.words:#tokenizing
+            if negativeSentiment == verbinG:
+                value = value - 0.05
+                if "not" + negativeSentiment:
+                    value = value + 0.1
 
+    if value == 0:
+        return "Neutral " + str(value)
 
+    if value < 0:
+        return "Negative " + str(value)
+
+    if value > 0:
+        return "Positive " + str(value)
+secure_sent = 0
 def isSecurity(wordSecurity):
-    if "security" in wordSecurity.lower():
-        return True
+    parkingBox = ["car", "parking", "moto", "motocycle", "bike", "park", "parking lot", "guard", "bodyguard", "security", "camera", "vehicle", "Loss and found", "found"]
 
-    if "camera" in wordSecurity.lower():
-        return True
+    for gem in parkingBox:
+        if gem in wordSecurity.lower():
+            return True
+tuition_sent = 0
+def isTuition(bitPrice):
+    feeBox = ["school price", "tuition", "school payment","school" + "fee" ]
+    for dols in feeBox:
+        if dols in bitPrice.lower():
+            return True
+cant_sent = 0
+def ratingCanteen(numbs):
+    if numbs == "1":
+        value = -0.9
 
-    if "body guard" in wordSecurity.lower():
-        return True
+        return value
+    if numbs == "2":
+        value = -0.4
+
+        return value
+    if numbs == "3":
+        value = 0.0
+
+        return value
+    if numbs == "4":
+        value = 0.4
+
+        return value
+    if numbs == "5":
+        value = 0.9
+
+        return value
+env_sent = 0
+def isEnvironment(facilitiy):
+
+    facilBoxy = ["hall", "library", "classroom", "clean", "dirty", "atmosphere", "air", "hot", "cold", "conference", "toilet", "garden", "scenary", "computerhall", "environment"]
+    for sameSame in facilBoxy:
+        if sameSame in facilitiy.lower():
+            return True
+service_sent = 0
+def isService(service):
+
+    serviceBox = ["receptionist ", "behavior", "service", "borrowing", "reserving"]
+
+    for something in serviceBox:
+        if something in service.lower():
+            return True
+
+#
+# def isSecurity(wordSecurity):
+#     if "security" in wordSecurity.lower():
+#         return True
+#
+#     if "camera" in wordSecurity.lower():
+#         return True
+#
+#     if "body guard" in wordSecurity.lower():
+#         return True
 
 
 def sentiment_result(value):
+
     if value == 0:
         return "Neutral"
     if value < 0:
@@ -48,12 +138,127 @@ def sentiment_result(value):
     if value > 0:
         return "Positive"
 
+negative_point = 0
+Neutral_point = 0
+positive_point = 0
+
+
 
 for phrase in df['TextDataReview']:
-    testimonial = TextBlob(phrase)
-    print("Sentence :" + phrase)
-    print("Polarity result: " + sentiment_result(testimonial.sentiment.polarity))
-    print("Is it in security Field ? :" + str(isSecurity(phrase)) + "\n")
+    manjiGang = TextBlob(phrase)
+    poleRate = ["1", "2", "3", "4", "5"]
+
+    word = 0
+    for ratingSession in poleRate:
+        # Supporting the Pole
+        if phrase == ratingSession:
+            print("Sentiment Point: " + str(ratingCanteen(phrase)))
+            print("Sentence: Poll review for canteen => :" + phrase)
+            print("Polarity result: " + sentiment_result(ratingCanteen(phrase)))
+            print("\n")
+            cant_sent += 1
+            if sentiment_result(ratingCanteen(phrase)) == "Positive":
+                positive_point += 1
+            if sentiment_result(ratingCanteen(phrase)) == "Negative":
+                negative_point += 1
+            if sentiment_result(ratingCanteen(phrase)) == "Neutral":
+                Neutral_point += 1
+
+
+
+    # Regular data
+    if phrase != "1":
+        if phrase != "2":
+            if phrase != "3":
+                if phrase != "4":
+                    if phrase != "5":
+                        print("Sentiment point:  " + str(manjiGang.sentiment.polarity))
+                        print("Sentence :" + phrase)
+                        print("Polarity result: " + sentiment_result(manjiGang.sentiment.polarity))
+                        print("\n")
+                        if sentiment_result(manjiGang.sentiment.polarity) == "Positive":
+                            positive_point += 1
+                        #     pos neg neu of each cate guidance
+                        #     if isService(phrase) == True:
+                        #         pos_service_sent += 1
+                        #
+                        #     if isTuition(phrase) == True:
+                        #         pos_tuition_sent += 1
+                        #
+                        #     if isSecurity(phrase) == True:
+                        #         pos_secure_sent += 1
+                        #
+                        #     if isEnvironment(phrase) == True:
+                        #         pos_env_sent += 1
+                        if sentiment_result(manjiGang.sentiment.polarity) == "Negative":
+                            negative_point += 1
+                        if sentiment_result(manjiGang.sentiment.polarity) == "Neutral":
+                            Neutral_point += 1
+
+                        if isService(phrase) == True:
+                            service_sent += 1
+
+                        if isTuition(phrase) == True:
+                            tuition_sent += 1
+
+                        if isSecurity(phrase) == True:
+                            secure_sent += 1
+
+                        if isEnvironment(phrase) == True:
+                            env_sent += 1
+
+
+
+
+print("Service ========> " + str(service_sent))
+print("tuition ========> " + str(tuition_sent))
+print("Security ========> " + str(secure_sent))
+print("Environment ========> " + str(env_sent))
+print("canteen ========> " + str(cant_sent))
+
+print(service_sent + tuition_sent + secure_sent + env_sent + cant_sent)
+
+total_sen = 0
+
+for something in df['TextDataReview']:
+    total_sen+=1
+
+print(total_sen)
+
+
+word_COUNT = []
+superior = ['the', 'is', 'i', 'to', 'for', 'and', 'it', 'good', 'it', 'or','for']
+
+
+
+all_words = Counter(' '.join(df['TextDataReview']).lower().split()).most_common(20)
+
+
+
+print(all_words)
+print(all_words[9:10])
+
+
+
+
+
+
+
+
+@app.route("/")
+def hello():
+    return render_template('index.html', total_sen=total_sen, neg_p=negative_point, pos_p=positive_point, neut_p=Neutral_point)
+
+# RUNING SERVER ON LOCAL HOST ##
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+
+
+
+
 
 
 
@@ -64,7 +269,12 @@ for phrase in df['TextDataReview']:
         # else:
         #     print(create_word_features(testimonial.words))
 
-# someA = TextBlob("It is beautiful at the parking lot but it is still a mess full of trashes and bad environment")
+
+
+
+# someA = TextBlob("room is not dirty but omygood")
+# print(balancingScore(someA.sentiment.polarity, someA))
+#
 # print(sentiment_result(someA.sentiment.polarity))
 
 
